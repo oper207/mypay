@@ -1,0 +1,598 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    tools:ignore="HardcodedText, RtlHardcoded, Autofill, LabelFor">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:ignore="UselessParent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!--전문종류-->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="전문종류" />
+
+                <Spinner
+                    android:id="@+id/sp_approval_kind"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+            <!-- QR Layout -->
+            <LinearLayout
+                android:id="@+id/ll_approval_qr"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+
+                <LinearLayout
+                    android:id="@+id/ll_approval_qrwcc"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="100dp"
+                        android:layout_height="match_parent"
+                        android:text="WCC" />
+
+                    <Spinner
+                        android:id="@+id/sp_approval_qrwcc"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll_approval_qrtype"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="100dp"
+                        android:layout_height="match_parent"
+                        android:text="거래구분" />
+
+                    <Spinner
+                        android:id="@+id/sp_approval_qrtype"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll_approval_qrbarcode"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="100dp"
+                        android:layout_height="match_parent"
+                        android:text="바코드" />
+
+                    <EditText
+                        android:id="@+id/et_approval_qrbarcode"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:inputType="none"
+                        android:maxLines="2" />
+                </LinearLayout>
+            </LinearLayout>
+            <!--카드입력방식-->
+            <LinearLayout
+                android:id="@+id/ll_approval_wcc"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="카드입력방식" />
+
+                <Spinner
+                    android:id="@+id/sp_approval_wcc"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+
+            <!--서명처리구분-->
+            <LinearLayout
+                android:id="@+id/ll_approval_signature"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="서명처리구분" />
+
+                <Spinner
+                    android:id="@+id/sp_approval_signature"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+
+            <!--부가정보-->
+            <LinearLayout
+                android:id="@+id/ll_approval_additional"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="부가정보" />
+
+                <Spinner
+                    android:id="@+id/sp_approval_additional"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+
+            <!--거래구분자-->
+            <LinearLayout
+                android:id="@+id/ll_approval_deal_gubun"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="거래구분자" />
+
+                <Spinner
+                    android:id="@+id/sp_approval_deal_gubun"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+
+            <!--거래구분자-->
+            <LinearLayout
+                android:id="@+id/ll_approval_trade_gubun"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="거래구분" />
+
+                <Spinner
+                    android:id="@+id/sp_approval_trade_gubun"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+
+            <!--적립구분-->
+            <LinearLayout
+                android:id="@+id/ll_approval_point_save_gubun"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="적립구분" />
+
+                <Spinner
+                    android:id="@+id/sp_approval_point_save_gubun"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+
+            <!--포인트 종류-->
+            <LinearLayout
+                android:id="@+id/ll_approval_point_kind"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="포인트 종류" />
+
+                <Spinner
+                    android:id="@+id/sp_approval_point_kind"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+
+            <!--제로페이-->
+            <LinearLayout
+                android:id="@+id/ll_approval_zero_auth_kind"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="100dp"
+                        android:layout_height="match_parent"
+                        android:gravity="center|left"
+                        android:text="입력방식" />
+
+                    <Spinner
+                        android:id="@+id/sp_approval_zero_wcc"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="100dp"
+                        android:layout_height="match_parent"
+                        android:gravity="center|left"
+                        android:text="바코드 데이터" />
+
+                    <EditText
+                        android:id="@+id/et_approval_barcode"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:inputType="textUri"
+                        android:maxLines="2" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll_approval_random"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/tv_approval_random"
+                        android:layout_width="100dp"
+                        android:layout_height="match_parent"
+                        android:gravity="center|left"
+                        android:text="임의 데이터" />
+
+                    <EditText
+                        android:id="@+id/et_approval_random"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:inputType="text"
+                        android:maxLength="50" />
+
+                </LinearLayout>
+            </LinearLayout>
+            <!--할부-->
+            <LinearLayout
+                android:id="@+id/ll_approval_i_months"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="할부" />
+
+                <EditText
+                    android:id="@+id/et_approval_i_months"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLines="2" />
+            </LinearLayout>
+
+            <!--거래금액-->
+            <LinearLayout
+                android:id="@+id/ll_approval_amount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="거래금액" />
+
+                <EditText
+                    android:id="@+id/et_approval_amount"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="numberDecimal"
+                    android:maxLength="9"
+                    android:text="1004" />
+            </LinearLayout>
+
+            <!--세금-->
+            <LinearLayout
+                android:id="@+id/ll_approval_tax"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="세금" />
+
+                <EditText
+                    android:id="@+id/et_approval_tax"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="9"
+                    android:text="0" />
+            </LinearLayout>
+
+            <!--봉사료-->
+            <LinearLayout
+                android:id="@+id/ll_approval_svc_charge"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="봉사료" />
+
+                <EditText
+                    android:id="@+id/et_approval_svc_charge"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="9"
+                    android:text="0" />
+            </LinearLayout>
+
+            <!--사용요청포인트-->
+            <LinearLayout
+                android:id="@+id/ll_approval_point_amount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="사용요청포인트" />
+
+                <EditText
+                    android:id="@+id/et_approval_point_amount"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="10" />
+            </LinearLayout>
+
+            <!--원거래일자-->
+            <LinearLayout
+                android:id="@+id/ll_approval_org_deal_dt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="원거래일자" />
+
+                <EditText
+                    android:id="@+id/et_approval_org_deal_dt"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:hint="yyMMdd"
+                    android:inputType="number"
+                    android:maxLength="8"
+                    android:textColorHint="#d5d5d5" />
+            </LinearLayout>
+
+            <!--원승인번호-->
+            <LinearLayout
+                android:id="@+id/ll_approval_org_approval_no"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="원승인번호" />
+
+                <EditText
+                    android:id="@+id/et_approval_org_approval_no"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="20" />
+            </LinearLayout>
+
+            <!--원거래고유번호-->
+            <LinearLayout
+                android:id="@+id/ll_approval_org_unique_no"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="원거래고유번호" />
+
+                <EditText
+                    android:id="@+id/et_approval_org_unique_no"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="12" />
+            </LinearLayout>
+            <!--비밀번호-->
+            <LinearLayout
+                android:id="@+id/ll_approval_password_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="비밀번호" />
+
+                <EditText
+                    android:id="@+id/et_approval_password_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="18" />
+            </LinearLayout>
+
+            <!--사업자번호-->
+            <LinearLayout
+                android:id="@+id/ll_approval_business_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="사업자번호" />
+
+                <EditText
+                    android:id="@+id/et_approval_business_no"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="10" />
+            </LinearLayout>
+
+            <!--수표번호-->
+            <LinearLayout
+                android:id="@+id/ll_approval_check_no"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="수표번호" />
+
+                <EditText
+                    android:id="@+id/et_approval_check_no"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="16" />
+            </LinearLayout>
+
+            <!--수표금액-->
+            <LinearLayout
+                android:id="@+id/ll_approval_check_amount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="수표금액" />
+
+                <EditText
+                    android:id="@+id/et_approval_check_amount"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="10" />
+            </LinearLayout>
+
+            <!--발행일자-->
+            <LinearLayout
+                android:id="@+id/ll_approval_check_publish_dt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="발행일자" />
+
+                <EditText
+                    android:id="@+id/et_approval_check_publish_dt"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:hint="yyMMdd"
+                    android:inputType="number"
+                    android:maxLength="6"
+                    android:textColorHint="#d5d5d5" />
+            </LinearLayout>
+
+            <!--단위농협코드-->
+            <LinearLayout
+                android:id="@+id/ll_approval_check_bank_code"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center|left"
+                    android:text="단위농협코드" />
+
+                <EditText
+                    android:id="@+id/et_approval_check_bank_code"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="number"
+                    android:maxLength="6"
+                    android:textColorHint="#d5d5d5" />
+            </LinearLayout>
+
+
+        </LinearLayout>
+    </ScrollView>
+
+</RelativeLayout>
