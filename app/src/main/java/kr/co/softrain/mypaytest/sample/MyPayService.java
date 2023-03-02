@@ -83,8 +83,7 @@ public class MyPayService extends Service {
     private String iMonths, svcCharge = "0";
     // 미사용 변수 목록(원거래일자 (취소시), 원승인번호 (취소시), 원거래고유번호 (취소시))
     private String drgDealDt, orgApprovalNo, orgUniqueNo = "";
-    // todo
-    String a = "0097";
+
 
     private String defaultApprovalCode = String.valueOf(ApprovalCode.getApproval(approvalCodes[0]));
 
@@ -136,11 +135,11 @@ public class MyPayService extends Service {
             @Override
             public void onResponse(Message msg) {
                 byte[] response = msg.getData().getByteArray("RESPONSE_MSG");
-                //Log.e("onResponse1", "[응답2] : " + response.length + "||" + response[response.length - 1]);
+                Log.e("onResponse1", "[응답2] : " + response.length + "||" + response[response.length - 1]);
                 if (response != null) {
                     String strResData = StringUtil.byteArrayToString(response);
 
-                    String text = a+" "+strResData+" "+money+" "+tax;
+                    String text = strResData+" "+money+" "+tax;
                     String[] words = text.split("\\s+"); // 띄어쓰기를 제외한 단어들을 배열로 추출
                     JSONObject jsonObject = new JSONObject();
                     for (int i = 0; i < words.length; i++) {
@@ -153,12 +152,9 @@ public class MyPayService extends Service {
                             e.printStackTrace();
                         }
                     }
-                    Log.e("조건문 전 값", " : " + words[0]);
 
                     if(words[0].equals("0097키")) {
                         handleKeyChange();
-                        // todo
-                        a = "keychange";
                     } else {
                         Log.e("onResponse3", " : " +  jsonObject.toString());
                         Intent intent = new Intent("softrain.intent.action.rpay");
