@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -12,6 +13,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Message;
 import android.support.v4.app.NotificationCompat;
@@ -75,12 +77,14 @@ public class MyPayService extends Service {
 
     private RequestCode requestCode;
     private JTNetPosManager.RequestCallback requestCallback;
-    // 돈, 세금, 단말기 ID
+    // 돈, 세금, TID
     private String money, tax, tid, rcode;
     // 미사용 변수 목록(할부, 봉사료)
     private String iMonths, svcCharge = "0";
     // 미사용 변수 목록(원거래일자 (취소시), 원승인번호 (취소시), 원거래고유번호 (취소시))
     private String drgDealDt, orgApprovalNo, orgUniqueNo = "";
+    // todo
+    String a = "0097";
 
     private String defaultApprovalCode = String.valueOf(ApprovalCode.getApproval(approvalCodes[0]));
 
@@ -92,29 +96,38 @@ public class MyPayService extends Service {
         }
     }
 
+    private void handleRequestMain(Intent intent){
+        mCurrType = intent.getStringExtra("type");
+        mCurrFuncNm = intent.getStringExtra("funcNm");
+        mCurrData = intent.getStringExtra("data");
+        try {
+            JSONObject jsonObject = new JSONObject(mCurrData);
+            money = jsonObject.getString("money");
+            tax = jsonObject.getString("tax");
+            tid = jsonObject.getString("tid");
+            rcode = getValueFromJson(jsonObject,"rcode", defaultApprovalCode);
+            requestCode = ApprovalCode.getApproval(rcode);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        // 결제창 띄우고 결제 처리 메소드
+        requestTaskDaemon(requestCode);
+    }
+
+    private void handleKeyChange(){
+        requestCode = ApprovalCode.getApproval("KC");
+        // 결제창 띄우고 결제 처리 메소드
+        requestTaskDaemon(requestCode);
+    }
+
     public MyPayService() {
 
         // mydisplay에서 받아오는 곳
         mMdCommand = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                mCurrType = intent.getStringExtra("type");
-                mCurrFuncNm = intent.getStringExtra("funcNm");
-                mCurrData = intent.getStringExtra("data");
-
-                try {
-                    JSONObject jsonObject = new JSONObject(mCurrData);
-                    money = jsonObject.getString("money");
-                    tax = jsonObject.getString("tax");
-                    tid = jsonObject.getString("tid");
-                    rcode = getValueFromJson(jsonObject,"rcode", defaultApprovalCode);
-                    requestCode = ApprovalCode.getApproval(rcode);
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-
-                // 결제창 띄우고 결제 처리 메소드
-                requestTaskDaemon(requestCode);
+                handleRequestMain(intent);
             }
         };
 
@@ -123,13 +136,11 @@ public class MyPayService extends Service {
             @Override
             public void onResponse(Message msg) {
                 byte[] response = msg.getData().getByteArray("RESPONSE_MSG");
-
-                Log.e("onResponse1", "[응답2] : " + response.length + "||" + response[response.length - 1]);
+                //Log.e("onResponse1", "[응답2] : " + response.length + "||" + response[response.length - 1]);
                 if (response != null) {
                     String strResData = StringUtil.byteArrayToString(response);
-                    Log.e("onResponse2", "[응답] : " + response.length + "||" + strResData);
 
-                    String text = strResData+" "+money+" "+tax;
+                    String text = a+" "+strResData+" "+money+" "+tax;
                     String[] words = text.split("\\s+"); // 띄어쓰기를 제외한 단어들을 배열로 추출
                     JSONObject jsonObject = new JSONObject();
                     for (int i = 0; i < words.length; i++) {
@@ -142,12 +153,21 @@ public class MyPayService extends Service {
                             e.printStackTrace();
                         }
                     }
-                    Log.e("onResponse3", " : " +  jsonObject.toString());
-                    Intent intent = new Intent("softrain.intent.action.rpay");
-                    intent.putExtra("type", "P_ModuleFunc");
-                    intent.putExtra("funcNm", "$creditApproval");
-                    intent.putExtra("data", jsonObject.toString());
-                    sendBroadcast(intent);
+                    Log.e("조건문 전 값", " : " + words[0]);
+
+                    if(words[0].equals("0097")) {
+                        handleKeyChange();
+                        // todo
+                        //a = "keychange";
+                    } else {
+                        Log.e("onResponse3", " : " +  jsonObject.toString());
+                        Intent intent = new Intent("softrain.intent.action.rpay");
+                        intent.putExtra("type", "P_ModuleFunc");
+                        intent.putExtra("funcNm", "$creditApproval");
+                        intent.putExtra("data", jsonObject.toString());
+                        sendBroadcast(intent);
+                    }
+
                 }
             }
         };
@@ -255,11 +275,6 @@ public class MyPayService extends Service {
         // requestArr바이트 배열을 사용하여 서버로 요청을 전송하고 응답을 수신하면
         // requestCallback 객체의 onResponse()메서드가 응답 데이터와 함께 호출한다.
         JTNetPosManager.getInstance().jtdmProcess(requestCodeNum, requestArr, requestCallback);
-//        Log.e("리퀘스트 값1", " : " + requestCodeNum);
-//        Log.e("리퀘스트 값2", " : " + requestArr);
-//        Log.e("리퀘스트 값3", " : " + StringUtil.byteArrayToString(requestArr));
-//        Log.e("리퀘스트 값4", " : " + requestArr.length);
-//        Log.e("리퀘스트 값5", " : " + requestCallback);
     }
 
 
