@@ -25,17 +25,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="#2196F3"
-                android:text="요청 전문" />
+                android:text="Softrain" />
 
             <ScrollView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_marginTop="10dp">
 
-                <TextView
-                    android:id="@+id/tv_request"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
             </ScrollView>
 
         </LinearLayout>
@@ -52,28 +48,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="#2196F3"
-                android:text="응답 전문" />
-
-            <ScrollView
-                android:id="@+id/sv_response"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_below="@+id/tv_response_title"
-                android:layout_marginTop="10dp">
-
-                <TextView
-                    android:id="@+id/tv_response"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-            </ScrollView>
-
-            <ProgressBar
-                android:id="@+id/pb_response"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:visibility="invisible"
-                tools:visibility="visible" />
+                android:text="소프트레인" />
 
         </RelativeLayout>
 

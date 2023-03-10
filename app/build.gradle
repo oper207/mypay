@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 30
     defaultConfig {
-        applicationId "kr.co.softrain.mypaytest.sample"
+        applicationId "com.softrain.mypay"
         minSdkVersion 19
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 28
