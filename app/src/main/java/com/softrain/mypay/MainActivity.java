@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
                 startService(new Intent(MainActivity.this, MyPayService.class));
                 finish();
             }
-        }, 10000); // 60000 = 1분(60초) 후에
+        }, 10000); // todo 60000 = 1분(60초) 후에
 
 
         if (!hasPermissions(getApplicationContext(), PERMISSIONS)) {
@@ -42,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }  // onCreate end
 
+    // Context와 권한 배열을 사용하여 앱이 권한을 가지고 있는지 검사
     public boolean hasPermissions(Context _context, String[] _permissions) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && _context != null && _permissions != null) {
             for (String permission : _permissions) {
@@ -53,10 +54,10 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+    // 권한 요청 결과 처리, 권한이 부여되지 않은 경우 다시 권한 요청
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
         switch (requestCode) {
             case CODE_ALL_PERMISSION:
                 if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {

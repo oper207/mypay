@@ -104,16 +104,15 @@ public class MyPayService extends Service {
             tax = jsonObject.getString("tax");
             tid = jsonObject.getString("tid");
             rcode = getValueFromJson(jsonObject,"rcode", defaultApprovalCode);
-            divIndex = jsonObject.getString("divIndex");
             requestCode = ApprovalCode.getApproval(rcode);
+            divIndex = jsonObject.getString("divIndex");
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        Log.i(ConstDef.TAG," MyService : mydisplay  값 받는 곳1 " + mCurrType);
-        Log.i(ConstDef.TAG," MyService : mydisplay  값 받는 곳2 " + mCurrFuncNm);
-        Log.i(ConstDef.TAG," MyService : mydisplay  값 받는 곳3 " + mCurrData);
-        Log.i(ConstDef.TAG," MyService : mydisplay  값 받는 곳4 " + rcode);
-        // MydisPlay FROM received
+        Log.i(ConstDef.TAG," MyService: mydisplay로부터 값 받는 곳(mCurrType) " + mCurrType);
+        Log.i(ConstDef.TAG," MyService: mydisplay로부터 값 받는 곳(mCurrFuncNm) " + mCurrFuncNm);
+        Log.i(ConstDef.TAG," MyService: mydisplay로부터 값 받는 곳(mCurrData) " + mCurrData);
+        Log.i(ConstDef.TAG," MyService: mydisplay로부터 값 받는 곳(rcode) " + rcode);
         TextLog.LogResponse(" " + ConstDef.MYDISPLAY_IN_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
         // 결제창 띄우고 결제 처리 메소드
         requestTaskDaemon(requestCode);
@@ -141,21 +140,16 @@ public class MyPayService extends Service {
             @Override
             public void onResponse(Message msg) {
                 byte[] response = msg.getData().getByteArray("RESPONSE_MSG");
-                //Log.e("onResponse1", "[응답2] : " + response.length + "||" + response[response.length - 1]);
-                TextLog.LogResponse(" " + ConstDef.JETNET_OUT_TAG + " " + msg + " " + response + " ");
+                TextLog.LogResponse(" " + ConstDef.JETNET_RESPONSE_TAG + " " + msg + " " + response + " ");
                 if (response != null) {
                     String strResData = StringUtil.byteArrayToString(response);
-                    TextLog.LogResponse(" " + ConstDef.JETNET_OUT_NOT_NULL_RESPONSE_TAG + strResData);
-                    // keyChangeTest+" "+
-//                    String text = divIndex+" "+strResData+" "+money+" "+tax;
+                    TextLog.LogResponse(" " + ConstDef.JETNET_RESPONSE_NOT_NULL_TAG + strResData);
                     StringBuilder sb = new StringBuilder();
-//                    sb.append(divIndex).append(" ").append(strResData).append(" ").append(money).append(" ").append(tax);
                     sb.append(divIndex).append(" ").append(money).append(" ").append(tax).append(" ").append(strResData);
                     String text = sb.toString();
                     String[] words = text.split("\\s+"); // 띄어쓰기를 제외한 단어들을 배열로 추출
                     JSONObject jsonObject = new JSONObject();
                     for (int i = 0; i < words.length; i++) {
-
                         String key = "response" + i;
                         String value = words[i];
                         try {
@@ -164,22 +158,12 @@ public class MyPayService extends Service {
                             e.printStackTrace();
                         }
                     }
-
-                    if(words[1].contains("0097")) {  // startsWith?
+                    if(words[1].startsWith("0097")) {
                         handleKeyChange();
                         // todo 키교환 테스트
 //                        keyChangeTest = "keychange";
                     } else {
-                        // {response0: "asdasdfqee", B: "adgdfgsgfgdfgfdgdfg2545545"}
-//                        String sData = "{\"response0\":\"asdasdfqee\", \"B\":\"adgdfgsgfgdfgfdgdfg2545545\"}";
-                        Log.i(ConstDef.TAG," MyService 리더기 응답 값"+  jsonObject.toString());
-                        Intent intent = new Intent(ConstDef.ACTION_NAME_TO_MYDISPLAY);
-                        intent.putExtra("type", ConstDef.CMD_TYPE);
-                        intent.putExtra("funcNm", ConstDef.CMD_FUNCNM_INTENT_RECEIVED);
-                        intent.putExtra("data", jsonObject.toString());
-                        sendBroadcast(intent);
-                        // MydisPlay SendIntent
-                        TextLog.LogResponse(" " + ConstDef.MYDISPLAY_OUT_TAG + " " + ConstDef.CMD_TYPE + " " + ConstDef.CMD_FUNCNM_INTENT_RECEIVED + " " + strResData);
+                        handleSendMain(jsonObject);
                     }
 
                 }
@@ -187,10 +171,19 @@ public class MyPayService extends Service {
         };
     }
 
+    private void handleSendMain(JSONObject jsonObject) {
+        Log.i(ConstDef.TAG," MyService 리더기 응답 값"+  jsonObject.toString());
+        Intent intent = new Intent(ConstDef.ACTION_NAME_TO_MYDISPLAY);
+        intent.putExtra("type", ConstDef.CMD_TYPE);
+        intent.putExtra("funcNm", ConstDef.CMD_FUNCNM_INTENT_RECEIVED);
+        intent.putExtra("data", jsonObject.toString());
+        sendBroadcast(intent);
+        TextLog.LogResponse(" " + ConstDef.MYDISPLAY_OUT_TAG + " " + ConstDef.CMD_TYPE + " " + ConstDef.CMD_FUNCNM_INTENT_RECEIVED);
+    }
+
     @Override
     public synchronized void onCreate() {
         super.onCreate();
-
         //데몬 연동 객체 생성 및 서비스 연동 함수
         JTNetPosManager.init(getApplicationContext());
         // 로그 초기화
@@ -202,7 +195,7 @@ public class MyPayService extends Service {
         super.onStartCommand(intent, flags, startId);
 
         showNotification();
-        // intent필터 객체생성
+        // Intent필터 객체생성
         IntentFilter filterMdCommand = new IntentFilter();
         filterMdCommand.addAction(ConstDef.ACTION_NAME_FROM_MYDISPLAY);
         registerReceiver(mMdCommand, filterMdCommand);
@@ -228,7 +221,6 @@ public class MyPayService extends Service {
 
         int notification_id = 1;
         String channel_id = "default";
-
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(channel_id, "기본 채널", NotificationManager.IMPORTANCE_DEFAULT);
@@ -290,7 +282,7 @@ public class MyPayService extends Service {
         // 데몬 연동 객체 리턴 함수
         // requestArr바이트 배열을 사용하여 서버로 요청을 전송하고 응답을 수신하면
         // requestCallback 객체의 onResponse()메서드가 응답 데이터와 함께 호출한다.
-        TextLog.LogResponse(" " + ConstDef.JETNET_IN_TAG + " " + requestCodeNum + " " + requestArr + " " + requestCallback);
+        TextLog.LogResponse(" " + ConstDef.JETNET_REQUEST_TAG + " " + requestCodeNum + " " + requestArr + " " + requestCallback);
         JTNetPosManager.getInstance().jtdmProcess(requestCodeNum, requestArr, requestCallback);
     }
 
@@ -350,7 +342,7 @@ public class MyPayService extends Service {
             case KAKAO_CANCEL_INQUIRY:
                 requestArr = createKakaopayArr(approvalCode);
                 break;
-            // todo
+            // 추가된 곳
             case POS_NUM:
                 requestArr = new PlainNumAbility(codeBytes).create();
                 break;
@@ -855,7 +847,6 @@ public class MyPayService extends Service {
      * 거래금액
      */
     private byte[] getDealAmount() {
-        Log.e("거래금액 늘리기", " : " + money.trim());
         return StringUtil.getLPadZero(9, money.trim()).getBytes();
     }
 
