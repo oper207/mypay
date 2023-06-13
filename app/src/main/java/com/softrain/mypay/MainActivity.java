@@ -11,14 +11,22 @@ import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.view.View;
-import android.widget.TextView;
+import android.util.Log;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+import android_serialport_api.SerialPort;
+import android_serialport_api.SerialPortFinder;
 
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String[] PERMISSIONS = {Manifest.permission.WRITE_EXTERNAL_STORAGE};
-    private static final int CODE_ALL_PERMISSION = 1000;
+    // 앱에서 필요로 하는 권한을 정의한 문자열 배열
+    private static final String[] PERMISSIONS = {Manifest.permission.WRITE_EXTERNAL_STORAGE}; // 현재는 외부 저장소에 대한 쓰기 권한
+    private static final int CODE_ALL_PERMISSION = 1000; // 권한 요청 시 사용되는 요청 코드를 정의한 정수 변수
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,8 +40,7 @@ public class MainActivity extends AppCompatActivity {
                 startService(new Intent(MainActivity.this, MyPayService.class));
                 finish();
             }
-        }, 10000); // todo 60000 = 1분(60초) 후에
-
+        }, 5000); // todo 60000 = 1분(60초) 후에
 
         if (!hasPermissions(getApplicationContext(), PERMISSIONS)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -69,4 +76,5 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
     }
+
 }
