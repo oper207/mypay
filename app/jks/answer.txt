@@ -1,0 +1,6 @@
+Sol.jks
+~~~~~~~
+key store password : sr110901
+key alias          : keySol
+key password       : sr110901
+

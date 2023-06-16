@@ -2,19 +2,22 @@ package com.softrain.mypay;
 
 
 import android.annotation.SuppressLint;
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
-import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -24,11 +27,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import android_serialport_api.SerialPort;
 import android_serialport_api.SerialPortFinder;
 
-public class MyPayService extends Service {
+public class MyPayService extends Service implements Runnable {
 
     // BroadcastReceiver 객체로, mydisplay에서 데이터를 수신할 때 사용
     private final BroadcastReceiver bMdCommand;
@@ -75,6 +80,10 @@ public class MyPayService extends Service {
     private Handler easyPaymentHandler = new Handler();
     // 연속결제 방지하는 변수
     boolean isStarting;
+    private Handler mHandler = null;
+    private int mTickTock = 0;
+    // 파일 이름
+    String gFileName = null;
 
     public MyPayService() {
 
@@ -123,7 +132,7 @@ public class MyPayService extends Service {
         mCurrType = intent.getStringExtra("type");
         mCurrFuncNm = intent.getStringExtra("funcNm");
         mCurrData = intent.getStringExtra("data");
-        TextLog.LogResponse(" " + ConstDef.MYDISPLAY_TO_MYPAY_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
+        TextLog.o(" " + ConstDef.MYDISPLAY_TO_MYPAY_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
         // 결제
         if(mCurrFuncNm.equals("$creditApproval")) {
             if(isStarting) {
@@ -139,6 +148,12 @@ public class MyPayService extends Service {
         // 결제취소
         else if(mCurrFuncNm.equals("$cancelApproval")){
             cancelApproval(mCurrData);
+        }
+        else if(mCurrFuncNm.equals("$appUpdateReq")){
+            requestUpdateVersion();
+        }
+        else if(mCurrFuncNm.equals("$appLogUploadReq")){
+            uploadLog(mCurrData);
         }
     }
 
@@ -157,7 +172,7 @@ public class MyPayService extends Service {
 //            codeAndQR = true;
             // 카드결제
             if(tCode.equals("D1")) {
-                TextLog.LogResponse(" " + ConstDef.MYDISPLAY_TO_MYPAY_GENERAL_PAYMENT_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
+                TextLog.o(" " + ConstDef.MYDISPLAY_TO_MYPAY_GENERAL_PAYMENT_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
                 // 결제창 띄우고 결제 처리 메소드
                 requestData(money, tax, tCode);
             }
@@ -183,7 +198,7 @@ public class MyPayService extends Service {
             Log.i(ConstDef.TAG," MyService: mydisplay로부터 값 받는 곳(mCurrFuncNm) " + mCurrFuncNm);
             Log.i(ConstDef.TAG," MyService: mydisplay로부터 값 받는 곳(mCurrData) " + mCurrData);
             Log.i(ConstDef.TAG," MyService: mydisplay로부터 값 받는 곳(rcode) " + tCode);
-            TextLog.LogResponse(" " + ConstDef.MYDISPLAY_TO_MYPAY_CANCEL_PAYMENT_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
+            TextLog.o(" " + ConstDef.MYDISPLAY_TO_MYPAY_CANCEL_PAYMENT_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
 
             // 결제창 취소창 띄우고 결제취소 처리 메소드
             payCancel(money, tax, tCode, aNumber, aDate);
@@ -203,7 +218,7 @@ public class MyPayService extends Service {
             String rCardInfo = jsonObject.getString("cardInfo");
             String rBill = jsonObject.getString("billInfo");
             Log.e("MyService: mydisplay로부터", " 받아온 영수증 값 : "+rReceiptPageNum+rStoreInfo+rReceiptInfo+rCardInfo+rBill + " json : " + jsonObject);
-            TextLog.LogResponse(" " + ConstDef.MYDISPLAY_TO_MYPAY_PRINT_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
+            TextLog.o(" " + ConstDef.MYDISPLAY_TO_MYPAY_PRINT_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
             PrintFactory.funcPrintText(rReceiptPageNum, rStoreInfo, rReceiptInfo, rCardInfo, rBill);
         } catch (JSONException e) {
             e.printStackTrace();
@@ -216,10 +231,14 @@ public class MyPayService extends Service {
 
         // 알림을 생성하여 표시하는 메서드
         showNotification();
+
         // 결제 Intent필터 객체생성
         IntentFilter filterMdCommand = new IntentFilter();
         filterMdCommand.addAction(ConstDef.ACTION_NAME_FROM_MYDISPLAY);
         registerReceiver(bMdCommand, filterMdCommand);
+
+        mHandler = new Handler();
+        mHandler.postDelayed(this, 1000 /* milliseconds */);
 
         return START_STICKY; // START_STICKY 값을 반환하여 시스템이 서비스를 종료한 후에도 자동으로 서비스를 재시작하도록 지정
     }
@@ -238,46 +257,255 @@ public class MyPayService extends Service {
         return null;
     }
 
+    @Override
+    public void run() {
+        if (mTickTock % 59 == 0) { /* every about 1 minute */
+            showNotification();
+
+            Date now = new Date();
+            SimpleDateFormat formatter_HHmm = new SimpleDateFormat("HH:mm");
+            String now_HHmm = formatter_HHmm.format(now);
+
+            TextLog.o("run(), now = " + now_HHmm);
+
+            if (now_HHmm.equals(ConstDef.UPDATE_TIME1) || now_HHmm.equals(ConstDef.UPDATE_TIME2)) {
+                requestUpdateVersion();
+            }
+
+            // todo 테스트용
+//            else if (now_HHmm.equals("10:43")) {
+//                requestUpdateVersion();
+//            }
+
+
+        }
+
+        mTickTock++;
+
+        // todo 테스트 로그용 TextLog.o("mTickTock = " + mTickTock);
+
+        mHandler.postDelayed(this, 1000 /* milliseconds */);
+    }
+
+    // todo
+    private void uploadLog(String mCurrData) {
+        TextLog.o("uploadLog");
+        getFileName();
+        String ArgHttpMethod = "POST";
+        String ArgHttpUrl = ConstDef.UPLOAD_URL_LOG + "?deviceId=" + mCurrData + "&subPath=mypay/log"+gFileName;
+        String ArgHttpBody = getExternalFilesDir(null).getAbsolutePath() + "/mypay_log.txt";
+        HTTPModuleClass http = new HTTPModuleClass(this);
+        http.execute(Integer.toString(ConstDef.HTTP_POST_UPLOAD_LOG), ArgHttpMethod, ArgHttpUrl, ArgHttpBody, ConstDef.HTTP_TYPE_FILE);
+    }
+
+    private void requestUpdateVersion() {
+        TextLog.o("requestUpdateVersion");
+
+        String ArgHttpMethod = "GET";
+        String ArgHttpUrl = ConstDef.UPDATE_URL_VERSION;
+        String ArgHttpBody = "";
+        HTTPModuleClass http = new HTTPModuleClass(this);
+        http.execute(Integer.toString(ConstDef.HTTP_GET_UPDATE_VERSION), ArgHttpMethod, ArgHttpUrl, ArgHttpBody, ConstDef.HTTP_TYPE_DATA);
+    }
+
+    private void requestUpdateApk() {
+        TextLog.o("requestUpdateApk");
+
+        String ArgHttpMethod = "GET";
+        String ArgHttpUrl = ConstDef.UPDATE_URL_APK;
+        String ArgHttpBody = "";
+        HTTPModuleClass http = new HTTPModuleClass(this);
+        http.execute(Integer.toString(ConstDef.HTTP_GET_UPDATE_APK), ArgHttpMethod, ArgHttpUrl, ArgHttpBody, ConstDef.HTTP_TYPE_FILE);
+    }
+
+    private class HTTPModuleClass extends HTTPBaseClass {
+        public HTTPModuleClass(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected void onPostExecute(Integer values) {
+            int request_code = values.intValue();
+
+            TextLog.o("[Resp] RequestCode = " + request_code);
+
+            if (request_code == ConstDef.HTTP_GET_UPDATE_VERSION) {
+                handleHttpGetUpdateVersion(RetResult, RetHttpStatusCode, RetHttpBody);
+            }
+            else if (request_code == ConstDef.HTTP_GET_UPDATE_APK) {
+                handleHttpGetUpdateApk(RetResult, RetHttpStatusCode, RetHttpBody);
+            }
+            else if (request_code == ConstDef.HTTP_POST_UPLOAD_LOG) {
+                handleHttpPostUploadLog(RetResult, RetHttpStatusCode, RetHttpBody);
+            }
+        }
+    }
+
+    private void handleHttpGetUpdateVersion(String ReturnResult, String ReturnHttpStatusCode, String ReturnHttpBody) {
+        if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_OK)) {
+            TextLog.o("handleHttpGetUpdateVersion: OK");
+            TextLog.o("handleHttpGetUpdateVersion: |" + ReturnHttpStatusCode + "|");
+            TextLog.o("handleHttpGetUpdateVersion: |" + ReturnHttpBody + "|");
+
+            int currVersionCode, postVersionCode;
+
+            currVersionCode = ConstFunc.getAppVersionCode(this);
+
+            /*
+             * {
+             *     "versionCode" : 3,
+             *     "versionName" : "3.0"
+             * }
+             */
+
+            try {
+                JSONObject jsonObj = new JSONObject(ReturnHttpBody);
+                postVersionCode = jsonObj.getInt("versionCode");
+            }
+            catch (JSONException e) {
+                postVersionCode = 0;
+            }
+
+            TextLog.o("handleHttpGetUpdateVersion: [curr] VersionCode = " + currVersionCode);
+            TextLog.o("handleHttpGetUpdateVersion: [post] VersionCode = " + postVersionCode);
+
+            if (postVersionCode > currVersionCode) {
+                requestUpdateApk();
+            }
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_NETWORK_DISCONNECTED)) {
+            TextLog.o("[error] handleHttpGetUpdateVersion: NETWORK_DISCONNECTED");
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_SERVER_ERROR_RESPONSE)) {
+            TextLog.o("[error] handleHttpGetUpdateVersion: SERVER_ERROR_RESPONSE");
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_SERVER_TIMEOUT)) {
+            TextLog.o("[error] handleHttpGetUpdateVersion: SERVER_TIMEOUT");
+        }
+        else {
+            TextLog.o("[error] handleHttpGetUpdateVersion: UNKNOWN_ERROR");
+        }
+    }
+
+    private void handleHttpGetUpdateApk(String ReturnResult, String ReturnHttpStatusCode, String ReturnHttpBody) {
+        if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_OK)) {
+            TextLog.o("handleHttpGetUpdateApk: OK");
+            TextLog.o("handleHttpGetUpdateApk: |" + ReturnHttpStatusCode + "|");
+            TextLog.o("handleHttpGetUpdateApk: |" + ReturnHttpBody + "|");
+
+            final PackageManager pm = getPackageManager();
+            PackageInfo info = pm.getPackageArchiveInfo(ReturnHttpBody /* apk_full_path */, 0);
+
+            int currVersionCode, postVersionCode;
+
+            currVersionCode = ConstFunc.getAppVersionCode(this);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                postVersionCode = (int)info.getLongVersionCode();
+            }
+            else {
+                postVersionCode = info.versionCode;
+            }
+
+            TextLog.o("handleHttpGetUpdateApk: [curr] VersionName = " + ConstFunc.getAppVersionName(this) + ", VersionCode = " + currVersionCode);
+            TextLog.o("handleHttpGetUpdateApk: [post] VersionName = " + info.versionName + ", VersionCode = " + postVersionCode);
+
+            if (postVersionCode > currVersionCode) {
+                TextLog.o("handleHttpGetUpdateApk: Update Start");
+
+                AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
+                Intent intent = new Intent(getApplicationContext(), AlarmReceiver.class);
+                PendingIntent pi = PendingIntent.getBroadcast(this, 0, intent, 0);
+
+                Date now = new Date();
+                now.setTime(java.lang.System.currentTimeMillis() + ConstDef.ALARM_TIME);
+                am.set(AlarmManager.RTC_WAKEUP, now.getTime(), pi);
+
+                TextLog.o("handleHttpGetUpdateApk: Restart Application in " + ConstDef.ALARM_TIME + " ms");
+
+                ConstFunc.installApk(this, ReturnHttpBody /* apk_full_path */);
+            }
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_NETWORK_DISCONNECTED)) {
+            TextLog.o("[error] handleHttpGetUpdateApk: NETWORK_DISCONNECTED");
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_SERVER_ERROR_RESPONSE)) {
+            TextLog.o("[error] handleHttpGetUpdateApk: SERVER_ERROR_RESPONSE");
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_SERVER_TIMEOUT)) {
+            TextLog.o("[error] handleHttpGetUpdateApk: SERVER_TIMEOUT");
+        }
+        else {
+            TextLog.o("[error] handleHttpGetUpdateApk: UNKNOWN_ERROR");
+        }
+    }
+
+    private void handleHttpPostUploadLog(String ReturnResult, String ReturnHttpStatusCode, String ReturnHttpBody) {
+        if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_OK)) {
+            TextLog.o("handleHttpPostUploadLog: OK");
+            TextLog.o("handleHttpPostUploadLog: |" + ReturnHttpStatusCode + "|");
+            TextLog.o("handleHttpPostUploadLog: |" + ReturnHttpBody + "|");
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_NETWORK_DISCONNECTED)) {
+            TextLog.o("[error] handleHttpPostUploadLog: NETWORK_DISCONNECTED");
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_SERVER_ERROR_RESPONSE)) {
+            TextLog.o("[error] handleHttpPostUploadLog: SERVER_ERROR_RESPONSE");
+        }
+        else if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_SERVER_TIMEOUT)) {
+            TextLog.o("[error] handleHttpPostUploadLog: SERVER_TIMEOUT");
+        }
+        else {
+            TextLog.o("[error] handleHttpPostUploadLog: UNKNOWN_ERROR");
+        }
+    }
+
     //  앱이 백그라운드에서 실행되는 동안 알림을 유지하고자 할 때 사용
     @SuppressLint("NewApi")  // .setColor(Color.BLACK)에 관한 경고를 무시하도록 지정. NewApi는 여기서 최신 버전의 안드로이드 API를 가리킴
     private void showNotification() {
+        Date now = new Date();
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String formatedNow = formatter.format(now);
+
+        String content_title = "mypay 앱 실행중 [버전: " + ConstFunc.getAppVersionName(this) + " (" + ConstFunc.getAppVersionCode(this) + ")]";
+        String content_text = "[" + formatedNow + "]";
 
         int notification_id = 1;
         String channel_id = "default";
 
-        // Oreo(버전 8.0) 이상과 그 이하의 버전에 따라 다른 방식으로 알림을 생성
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channel_id, "기본 채널", NotificationManager.IMPORTANCE_DEFAULT);
+        TextLog.o("Build.VERSION.SDK_INT = " + Build.VERSION.SDK_INT + ", Build.VERSION_CODES.O = " + Build.VERSION_CODES.O);
 
-            NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-            notificationManager.createNotificationChannel(channel);
+        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        //    NotificationChannel channel = new NotificationChannel(channel_id, "기본 채널", NotificationManager.IMPORTANCE_DEFAULT);
 
-            stopForeground(true);
+        //    NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+        //    notificationManager.createNotificationChannel(channel);
 
-            Notification notification = new NotificationCompat.Builder(this, channel_id)
-                    .setContentTitle("SOFTRAIN")
-                    .setContentText("")
-                    .setSmallIcon(R.drawable.ic_launcher)
-                    .setAutoCancel(false)
-                    .setWhen(System.currentTimeMillis())
-                    .setColor(Color.BLACK)
-                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                    .build();
+        //    stopForeground(true);
 
-            notification.flags |= Notification.FLAG_NO_CLEAR;
+        //    Notification notification = new androidx.core.app.NotificationCompat.Builder(this, channel_id)
+        //            .setContentTitle(content_title)
+        //            .setContentText(content_text)
+        //            .setSmallIcon(R.mipmap.ic_launcher)
+        //            .setAutoCancel(false)
+        //            .setWhen(System.currentTimeMillis())
+        //            .setColor(Color.BLACK)
+        //            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        //            .build();
 
-            startForeground(notification_id, notification);
-        }
-        else {
+        //    notification.flags |= Notification.FLAG_NO_CLEAR;
+
+        //    startForeground(notification_id, notification);
+        //}
+        //else {
             NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
 
             notificationManager.cancelAll();
 
-            Notification notification = null;
-            notification = new Notification.Builder(this)
-                    .setContentTitle("SOFTRAIN")
-                    .setContentText("")
-                    .setSmallIcon(R.drawable.ic_launcher)
+            Notification notification = new Notification.Builder(this)
+                    .setContentTitle(content_title)
+                    .setContentText(content_text)
+                    .setSmallIcon(R.mipmap.ic_launcher)
                     .setAutoCancel(false)
                     .setWhen(System.currentTimeMillis())
                     .setColor(Color.BLACK)
@@ -287,7 +515,7 @@ public class MyPayService extends Service {
             notification.flags |= Notification.FLAG_NO_CLEAR;
 
             notificationManager.notify(notification_id, notification);
-        }
+        //}
     }
 
     // 결제창 띄우고 결제 처리
@@ -309,7 +537,7 @@ public class MyPayService extends Service {
         registerReceiver(rPayment, intentFilter); // receiver를 등록하여 액션에 대한 브로드캐스트 수신을 처리합니다.
         intent.setFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
         startActivity(intent); // Intent를 사용하여 액티비티를 시작합니다.
-        TextLog.LogResponse(" " + ConstDef.KIS_PAYMENT_REQUEST_TAG + " inTestMode: " + kisvanSpec.inTestMode + " inTranCode: " + kisvanSpec.inTranCode + " inTotAmt: " + kisvanSpec.inTotAmt + " inVatAmt: " + kisvanSpec.inVatAmt);
+        TextLog.o(" " + ConstDef.KIS_PAYMENT_REQUEST_TAG + " inTestMode: " + kisvanSpec.inTestMode + " inTranCode: " + kisvanSpec.inTranCode + " inTotAmt: " + kisvanSpec.inTotAmt + " inVatAmt: " + kisvanSpec.inVatAmt);
     }
 
     // 방송 인텐트를 수신하는 역할
@@ -443,7 +671,7 @@ public class MyPayService extends Service {
         System.out.println("outUsedPoint: " + kisvanSpec.outUsedPoint);
         System.out.println("outStatusICCard: " + kisvanSpec.outStatusICCard);
 
-        TextLog.LogResponse(" " + ConstDef.KIS_PAYMENT_RESPONSE_TAG + " " + sb);
+        TextLog.o(" " + ConstDef.KIS_PAYMENT_RESPONSE_TAG + " " + sb);
         String sbPaydatas = sb.toString();
         String[] split = sbPaydatas.split("#"); // #를 제외한 단어들을 배열로 추출
         JSONObject jsonObject = new JSONObject();
@@ -470,7 +698,7 @@ public class MyPayService extends Service {
         intent.putExtra("funcNm", ConstDef.CMD_FUNCNM_INTENT_RECEIVED);
         intent.putExtra("data", jsonObject.toString());
         sendBroadcast(intent);
-        TextLog.LogResponse(" " + ConstDef.MYPAYT_TO_MYDISPLAY_TAG + " " + ConstDef.ACTION_NAME_TO_MYDISPLAY + " " +ConstDef.CMD_TYPE + " " + ConstDef.CMD_FUNCNM_INTENT_RECEIVED + " " + jsonObject);
+        TextLog.o(" " + ConstDef.MYPAYT_TO_MYDISPLAY_TAG + " " + ConstDef.ACTION_NAME_TO_MYDISPLAY + " " +ConstDef.CMD_TYPE + " " + ConstDef.CMD_FUNCNM_INTENT_RECEIVED + " " + jsonObject);
         UndoContinuous();
     }
 
@@ -897,6 +1125,17 @@ public class MyPayService extends Service {
                 Log.e("연속 실행 취소" , " : " +  isStarting);
             }
         }, 1000);
+    }
+
+    // todo public native int installApk(String apk);
+
+    public void getFileName() {
+        Date currentDate = new Date(); // 현재 시간을 나타내는 Date 객체
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss"); // 포맷 형식은 "yyyy-MM-dd_HH:mm:ss"로 지정되어 있으며, 이는 연도-월-일_시간:분:초 형식을 나타냄
+        String sFormattedDate = simpleDateFormat.format(currentDate);
+        String fileName = "log_" + sFormattedDate + ".txt";
+        System.out.println("fileName: " + fileName);
+        gFileName = fileName;
     }
 }
 

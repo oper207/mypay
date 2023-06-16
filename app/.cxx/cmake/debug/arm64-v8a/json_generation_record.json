@@ -1,0 +1,92 @@
+[
+  {
+    "level": "INFO",
+    "message": "Start JSON generation. Platform version: 19 min SDK version: arm64-v8a",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "ERROR",
+    "message": "CMake version \u00273.18.1-g262b901\u0027 is not formatted correctly.",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "Trying to locate CMake in local SDK repository.",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "- CMake found in SDK at \u0027/Users/jeongyoungmin/Library/Android/sdk/cmake/3.10.2.4988404\u0027 had version \u00273.10.2\u0027",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "CMake \u00273.18.1\u0027 found in SDK did not match requested version \u00273.10.2\u0027.",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "CMake \u00273.22.1\u0027 found in SDK did not match requested version \u00273.10.2\u0027.",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "CMake \u00273.6.0\u0027 found in SDK did not match requested version \u00273.10.2\u0027.",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "rebuilding JSON /Users/jeongyoungmin/AndroidStudioProjects/mypay/app/.cxx/cmake/debug/arm64-v8a/android_gradle_build.json due to:",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "- expected json /Users/jeongyoungmin/AndroidStudioProjects/mypay/app/.cxx/cmake/debug/arm64-v8a/android_gradle_build.json file is not present, will remove stale json folder",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "- missing previous command file /Users/jeongyoungmin/AndroidStudioProjects/mypay/app/.cxx/cmake/debug/arm64-v8a/build_command.txt, will remove stale json folder",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "- command changed from previous, will remove stale json folder",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "removing stale contents from \u0027/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/.cxx/cmake/debug/arm64-v8a\u0027",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "created folder \u0027/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/.cxx/cmake/debug/arm64-v8a\u0027",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "executing cmake Executable : /Users/jeongyoungmin/Library/Android/sdk/cmake/3.10.2.4988404/bin/cmake\narguments : \n-H/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp\n-DCMAKE_BUILD_TYPE\u003dDebug\n-DCMAKE_TOOLCHAIN_FILE\u003d/Users/jeongyoungmin/Library/Android/sdk/ndk/20.0.5594570/build/cmake/android.toolchain.cmake\n-DANDROID_ABI\u003darm64-v8a\n-DANDROID_NDK\u003d/Users/jeongyoungmin/Library/Android/sdk/ndk/20.0.5594570\n-DANDROID_PLATFORM\u003dandroid-19\n-DCMAKE_ANDROID_ARCH_ABI\u003darm64-v8a\n-DCMAKE_ANDROID_NDK\u003d/Users/jeongyoungmin/Library/Android/sdk/ndk/20.0.5594570\n-DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON\n-DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003d/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/build/intermediates/cmake/debug/obj/arm64-v8a\n-DCMAKE_SYSTEM_NAME\u003dAndroid\n-DCMAKE_SYSTEM_VERSION\u003d19\n-B/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/.cxx/cmake/debug/arm64-v8a\n-GNinja\njvmArgs : \n\n",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  },
+  {
+    "level": "INFO",
+    "message": "JSON generation completed with problem. Exception: java.io.IOException: Cannot run program \"/Users/jeongyoungmin/Library/Android/sdk/cmake/3.10.2.4988404/bin/cmake\": error\u003d2, No such file or directory",
+    "file": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/src/main/cpp/CMakeLists.txt",
+    "tag": "debug|arm64-v8a"
+  }
+]
