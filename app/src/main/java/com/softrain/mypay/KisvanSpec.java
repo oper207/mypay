@@ -120,11 +120,12 @@ public class KisvanSpec {
     public int outSignDataLen; // 서명 데이터 길이를 저장하는 변수
     public String outSignFilePath; // 서명 파일 경로를 저장하는 변수
 
-    public String outSafeCardICData; // 안전한 카드 IC 데이터를 저장하는 변수
+    public String outSafeCardICData;     // 안전한 카드 IC 데이터를 저장하는 변수
 
     public String outFiller; // 채우기 변수
     public String[] outAccountInfo; // 계좌 정보 배열을 저장하는 변수
     public String outCardBin; // 카드 BIN을 저장하는 변수
+    public boolean isSavePath; // 서명요다 변수
 
     public KisvanSpec()
     {
@@ -245,6 +246,8 @@ public class KisvanSpec {
         outPosSerialNo = "";
         outStatusICCard = "";
         outFiller = "";
+        isSavePath = false;
+        outSignFilePath ="";
     }
 
     public void RequestData(Bundle bundle) {
@@ -310,6 +313,7 @@ public class KisvanSpec {
         bundle.putString("inCatPort", inCatPort);
         bundle.putByteArray("inPrtData", inPrtData);
         bundle.putBoolean("inConnectToCat", inConnectToCat);
+        bundle.putBoolean("isSavePath", isSavePath);
     }
 
     public void RequestData(Intent intent) {
@@ -367,6 +371,7 @@ public class KisvanSpec {
         intent.putExtra("inCatIP", inCatIP);
         intent.putExtra("inCatPort", inCatPort);
         intent.putExtra("inConnectToCat", inConnectToCat);
+        intent.putExtra("isSavePath", isSavePath);
     }
 
     public void ResponseData(Intent intent) {
@@ -425,7 +430,16 @@ public class KisvanSpec {
         outStatusICCard = intent.getStringExtra("outStatusICCard");
 
         outSignType = intent.getIntExtra("outSignType", 0);
-        outSignDataLen = intent.getIntExtra("outSignDataLen", 0);
+//        outSignDataLen = intent.getIntExtra("outSignDataLen", 0); // todo java.lang.String cannot be cast to java.lang.Integer
+        String outSignDataLenValue = "100"; // This value comes from an external source and is a String representation of an integer.
+        try {
+            int outSignDataLenSet = Integer.parseInt(outSignDataLenValue);
+            outSignDataLen = intent.getIntExtra("outSignDataLen", outSignDataLenSet);
+        } catch (NumberFormatException e) {
+            // Handle the case where the value is not a valid integer
+            // For example, you can set a default value or show an error message
+            outSignDataLen = intent.getIntExtra("outSignDataLen", 0); // Default value (or any other appropriate default)
+        }
         outSignFilePath = intent.getStringExtra("outSignFilePath");
         outSafeCardICData = intent.getStringExtra("outSafeCardICData");
         outCardBin = intent.getStringExtra("outCardBin");

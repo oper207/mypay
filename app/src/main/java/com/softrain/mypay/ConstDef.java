@@ -45,4 +45,9 @@ public class ConstDef {
     public static final String RETURN_RESULT_VALUE_NETWORK_DISCONNECTED = "{{ NetworkDisconnected }}";
     public static final String RETURN_RESULT_VALUE_SERVER_ERROR_RESPONSE = "{{ ServerErrorResponse }}";
     public static final String RETURN_RESULT_VALUE_SERVER_TIMEOUT = "{{ ServerTimeout }}";
+
+    public static final String ACTION_NAME_FROM_KIS = "kr.co.kisvan.andagent.inapp";
+
+    public static final String MYPAYT_PRINT_CONNECTION_STATUS = "mypay Print Connection Status";
+    public static final String MYPAYT_PRINT_OUTPUT_VALUES = "mypay Print Output Values";
 }

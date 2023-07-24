@@ -5,15 +5,20 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -38,11 +43,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }, 5000); // todo 60000 = 1분(60초) 후에
 
-        if (!hasPermissions(getApplicationContext(), PERMISSIONS)) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(PERMISSIONS, CODE_ALL_PERMISSION);
-            }
-        }
     }  // onCreate end
 
     // Context와 권한 배열을 사용하여 앱이 권한을 가지고 있는지 검사

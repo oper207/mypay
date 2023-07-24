@@ -68,4 +68,5 @@ dependencies {
     implementation 'com.blankj:utilcode:1.30.5'
     implementation 'com.google.zxing:core:3.3.0'
     implementation files('libs/icod_3.1.7.jar')
+    implementation files('libs/printer-lib-2.2.5.aar')
 }
