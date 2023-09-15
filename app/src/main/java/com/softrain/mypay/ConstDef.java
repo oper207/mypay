@@ -50,4 +50,16 @@ public class ConstDef {
 
     public static final String MYPAYT_PRINT_CONNECTION_STATUS = "mypay Print Connection Status";
     public static final String MYPAYT_PRINT_OUTPUT_VALUES = "mypay Print Output Values";
+    public static final String MYPAYT_PERMISSION_EXTERNAL_STORAGE = "mypay Permission External Storage";
+
+    public static final String MYPAYT_APP_VERSION = "mypay app version";
+    public static final String MYPAYT_APP_WIFE_SSID = "mypay app wife ssid";
+    public static final String MYPAYT_APP_WIFE_IP = "mypay app wife ip";
+
+    public static final String MYPAYT_KIS_APP_CONNECTION_FAILD = "mypay kiss app connnection faild";
+    public static final String MYPAYT_MYDISPLAY_APP_CONNECTION_FAILD = "mypay mydisplay app connnection faild";
+
+    public static final String MYPAYT_PREVENTING_CONTINUOUS_CLICK = "mypay preventing continuous click";
+
+    public static final String MYPAYT_SERVICE_START = "mypay service start";
 }

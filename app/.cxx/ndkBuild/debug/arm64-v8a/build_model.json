@@ -94,7 +94,6 @@
       "project": {
         "compilerSettingsCacheFolder": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/.cxx",
         "cxxFolder": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/.cxx",
-        "ideBuildTargetAbi": "arm64-v8a",
         "isBuildOnlyTargetAbiEnabled": true,
         "isCmakeBuildCohabitationEnabled": false,
         "isNativeCompilerSettingsCacheEnabled": false,
@@ -117,7 +116,10 @@
     "objFolder": "/Users/jeongyoungmin/AndroidStudioProjects/mypay/app/build/intermediates/ndkBuild/debug/obj/local",
     "variantName": "debug",
     "validAbiList": [
-      "ARM64_V8A"
+      "ARMEABI_V7A",
+      "ARM64_V8A",
+      "X86",
+      "X86_64"
     ]
   }
 }

@@ -431,15 +431,6 @@ public class KisvanSpec {
 
         outSignType = intent.getIntExtra("outSignType", 0);
 //        outSignDataLen = intent.getIntExtra("outSignDataLen", 0); // todo java.lang.String cannot be cast to java.lang.Integer
-        String outSignDataLenValue = "100"; // This value comes from an external source and is a String representation of an integer.
-        try {
-            int outSignDataLenSet = Integer.parseInt(outSignDataLenValue);
-            outSignDataLen = intent.getIntExtra("outSignDataLen", outSignDataLenSet);
-        } catch (NumberFormatException e) {
-            // Handle the case where the value is not a valid integer
-            // For example, you can set a default value or show an error message
-            outSignDataLen = intent.getIntExtra("outSignDataLen", 0); // Default value (or any other appropriate default)
-        }
         outSignFilePath = intent.getStringExtra("outSignFilePath");
         outSafeCardICData = intent.getStringExtra("outSafeCardICData");
         outCardBin = intent.getStringExtra("outCardBin");

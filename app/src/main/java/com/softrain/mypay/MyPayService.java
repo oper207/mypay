@@ -1,12 +1,16 @@
 package com.softrain.mypay;
 
 
+import static net.posprinter.POSConnect.appCtx;
+import static net.posprinter.POSConnect.createDevice;
+
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -17,14 +21,18 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 
 import com.softrain.mypay.XprinterUtils.HexUtils;
 
 import net.posprinter.IDeviceConnection;
+import net.posprinter.IPOSListener;
 import net.posprinter.POSConnect;
 import net.posprinter.POSConst;
 import net.posprinter.POSPrinter;
+import net.posprinter.posprinterface.IStatusCallback;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -38,6 +46,7 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
 
 import android_serialport_api.SerialPort;
 import android_serialport_api.SerialPortFinder;
@@ -89,21 +98,14 @@ public class MyPayService extends Service implements Runnable {
     private int mTickTock = 0;
     // 파일 이름
     String gFileName = null;
-    boolean startCheck;
-    // POS 프린터 연결을 위한 IDeviceConnection 객체
-    private IDeviceConnection connect;
-    // POS 프린터 객체
-    private POSPrinter printer;
+    private XPrintFactory xPrintFactory;
+    private String mypayInTestMode = "N";
 
     // mydisplay에서 결제 받아오는 곳
     public MyPayService() {
         bMdCommand = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if(isStarting) {
-                    return;
-                }
-                isStarting = true;
                 payHandleRequest(intent);
             }
         };
@@ -122,13 +124,43 @@ public class MyPayService extends Service implements Runnable {
         super.onCreate();
         //PrintFactory.init(this);         // PrintFactory 클래스를 초기화 (키오스크 영수증 출력 기기)
         TextLog.init(this);          // 로그 초기화
-        POSConnect.init(this);  // 영수증 라이브러리 초기화
+        xPrintFactory = new XPrintFactory(); // Initialize XPrintFactory instance
+        xPrintFactory.xInit(this); // Initialize and connect the printer
+        xPrintFactory.connect("MAC", status -> {
+            // Update the TextView with the connection status
+        });
 
         kisvanSpec = new KisvanSpec();    // KisvanSpec 클래스의 인스턴스를 생성하여 kisvanSpec 변수에 할당
         SetSerialPort(SERIAL_PORT_NAME);  // 사용하여 시리얼 포트를 설정
         StartRxThread();                  // 수신 쓰레드를 시작
-        isStarting = false;               // 연속 결제 방지 변수 설정
-        connect("MAC");              // 프린트 연결
+
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                divIndex = "first";
+                isStarting = false; // 연속 결제 방지 변수 설정
+                try {
+                    intent = new Intent(ConstDef.ACTION_NAME_FROM_KIS);
+                    kisvanSpec.Init();
+                    kisvanSpec.inTestMode = mypayInTestMode;
+                    kisvanSpec.inTranCode = "LT";
+                    kisvanSpec.RequestData(intent);
+                    intent.putExtra("ResultType", 1);
+                    IntentFilter intentFilter = new IntentFilter();
+                    intentFilter.addAction(ConstDef.ACTION_NAME_FROM_KIS);
+                    registerReceiver(kisReceiver, intentFilter); // receiver를 등록하여 액션에 대한 브로드캐스트 수신을 처리합니다.
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                    startActivity(intent);
+                    TextLog.o(" " + ConstDef.MYPAYT_SERVICE_START + " onCreate() ");
+            } catch (ActivityNotFoundException e) {
+                    // 액티비티를 처리할 수 없는 예외 발생 시 실행할 코드 작성
+                    TextLog.o(" " + ConstDef.MYPAYT_KIS_APP_CONNECTION_FAILD + " onCreate() ");
+                    e.printStackTrace();
+            }
+                requestUpdateVersion();
+            }
+        }, 1000);
     }
 
     @Override
@@ -159,15 +191,25 @@ public class MyPayService extends Service implements Runnable {
         return null;
     }
 
+
     // mydisplay에서 결제 데이터값 받는 곳
     private void payHandleRequest(Intent intent){
+        if(!xPrintFactory.isPrinterConnected()) {
+            TextLog.o(" " + ConstDef.MYPAYT_PRINT_CONNECTION_STATUS + " Reconnect: " + xPrintFactory.isPrinterConnected());
+            xPrintFactory.connect("MAC", status -> {
+            });
+        }
         mCurrType = intent.getStringExtra("type");
         mCurrFuncNm = intent.getStringExtra("funcNm");
         mCurrData = intent.getStringExtra("data");
-        TextLog.o(" " + ConstDef.MYDISPLAY_TO_MYPAY_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
+        TextLog.o(" " + ConstDef.MYDISPLAY_TO_MYPAY_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData + " isStarting: "+isStarting);
         switch (mCurrFuncNm) {
             // 결제
             case "$creditApproval":
+                if(isStarting) {
+                    return;
+                }
+                isStarting = true;
                 creditApproval(mCurrData);
                 break;
             // 프린터
@@ -176,13 +218,17 @@ public class MyPayService extends Service implements Runnable {
                 break;
             // 결제취소
             case "$cancelApproval":
+                if(isStarting) {
+                    return;
+                }
+                isStarting = true;
                 cancelApproval(mCurrData);
                 break;
-            // 로그 업로드
+            // apk 업데이트
             case "$appUpdateReq":
                 requestUpdateVersion();
                 break;
-            // apk 업데이트
+            // 로그 업로드
             case "$appLogUploadReq":
                 uploadLog(mCurrData);
                 break;
@@ -229,22 +275,28 @@ public class MyPayService extends Service implements Runnable {
 
     // 결제창 띄우고 결제 처리
     public void requestData(String money, String tax, String tCode) {
-        intent = new Intent(ConstDef.ACTION_NAME_FROM_KIS); // 앱 이름을 가지고 Intent 객체를 생성합니다.
-        kisvanSpec.Init(); // KisvanSpec 객체의 Init() 메서드를 호출하여 초기화 작업을 수행합니다.
-        kisvanSpec.inTestMode = "Y"; // 테스트 모드를 활성화하기 위해 "Y" 값을 할당합니다.
-        // 빈 값으로 입력하면 AndroidAgent 내에서 선택된 가맹점으로 결제가 진행됩니다.
-        kisvanSpec.inTranCode = tCode; // 거래 코드를 설정합니다.
-        kisvanSpec.inTotAmt = String.valueOf(Integer.parseInt(money) + Integer.parseInt(tax));//String.valueOf(Integer.parseInt(money) + Integer.parseInt(tax))
-        kisvanSpec.inVatAmt = tax; // 부가세 금액을 설정합니다.
-        kisvanSpec.isSavePath = true; // 5만원 이상 시 싸인 저장
-        kisvanSpec.RequestData(intent); // KisvanSpec 객체의 RequestData() 메서드를 호출하여 intent와 관련된 데이터를 설정합니다.
-        intent.putExtra("ResultType", 1); // Intent에 "ResultType"이라는 키로 1 값을 추가합니다. (0 : Activity, 1 : BroadCastReceiver)
-        IntentFilter intentFilter = new IntentFilter(); // IntentFilter 객체를 생성합니다.
-        intentFilter.addAction(ConstDef.ACTION_NAME_FROM_KIS); // intentFilter에 앱 이름에 해당하는 액션을 추가합니다.
-        registerReceiver(kisReceiver, intentFilter); // receiver를 등록하여 액션에 대한 브로드캐스트 수신을 처리합니다.
-        intent.setFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
-        startActivity(intent); // Intent를 사용하여 액티비티를 시작합니다.
-        TextLog.o(" (card payment) " + ConstDef.KIS_PAYMENT_REQUEST_TAG + " inTestMode: " + kisvanSpec.inTestMode + " inTranCode: " + kisvanSpec.inTranCode + " inTotAmt: " + kisvanSpec.inTotAmt + " inVatAmt: " + kisvanSpec.inVatAmt + " isSavePath: " + kisvanSpec.isSavePath);
+        try {
+            intent = new Intent(ConstDef.ACTION_NAME_FROM_KIS); // 앱 이름을 가지고 Intent 객체를 생성합니다.
+            kisvanSpec.Init(); // KisvanSpec 객체의 Init() 메서드를 호출하여 초기화 작업을 수행합니다.
+            kisvanSpec.inTestMode = mypayInTestMode; // 테스트 모드를 활성화하기 위해 "Y" 값을 할당합니다.
+            // 빈 값으로 입력하면 AndroidAgent 내에서 선택된 가맹점으로 결제가 진행됩니다.
+            kisvanSpec.inTranCode = tCode; // 거래 코드를 설정합니다.
+            kisvanSpec.inTotAmt = String.valueOf(Integer.parseInt(money) + Integer.parseInt(tax));//String.valueOf(Integer.parseInt(money) + Integer.parseInt(tax))
+            kisvanSpec.inVatAmt = tax; // 부가세 금액을 설정합니다.
+            kisvanSpec.isSavePath = true; // 5만원 이상 시 싸인 저장
+            kisvanSpec.RequestData(intent); // KisvanSpec 객체의 RequestData() 메서드를 호출하여 intent와 관련된 데이터를 설정합니다.
+            intent.putExtra("ResultType", 1); // Intent에 "ResultType"이라는 키로 1 값을 추가합니다. (0 : Activity, 1 : BroadCastReceiver)
+            IntentFilter intentFilter = new IntentFilter(); // IntentFilter 객체를 생성합니다.
+            intentFilter.addAction(ConstDef.ACTION_NAME_FROM_KIS); // intentFilter에 앱 이름에 해당하는 액션을 추가합니다.
+            registerReceiver(kisReceiver, intentFilter); // receiver를 등록하여 액션에 대한 브로드캐스트 수신을 처리합니다.
+            intent.setFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            startActivity(intent); // Intent를 사용하여 액티비티를 시작합니다.
+            TextLog.o(" (card payment) " + ConstDef.KIS_PAYMENT_REQUEST_TAG + " inTestMode: " + kisvanSpec.inTestMode + " inTranCode: " + kisvanSpec.inTranCode + " inTotAmt: " + kisvanSpec.inTotAmt + " inVatAmt: " + kisvanSpec.inVatAmt + " isSavePath: " + kisvanSpec.isSavePath);
+        } catch (ActivityNotFoundException e) {
+            // 액티비티를 처리할 수 없는 예외 발생 시 실행할 코드 작성
+            TextLog.o(" " + ConstDef.MYPAYT_KIS_APP_CONNECTION_FAILD + " requestData() ");
+            e.printStackTrace();
+        }
         //        rPayment = new AgentResPayment(); // AndroidAgentRes 클래스의 인스턴스를 생성하여 receiver 변수에 할당합니다.
         //        registerReceiver(rPayment, intentFilter); // receiver를 등록하여 액션에 대한 브로드캐스트 수신을 처리합니다.
     }
@@ -254,13 +306,14 @@ public class MyPayService extends Service implements Runnable {
         // 영수증 데이터 처리
         try {
             JSONObject jsonObject = new JSONObject(mCurrData);
-            String rReceiptPageNum = jsonObject.getString("receiptPageNum");
-            String rStoreInfo = jsonObject.getString("storeInfo");
-            String rReceiptInfo = jsonObject.getString("receiptInfo");
-            String rCardInfo = jsonObject.getString("cardInfo");
-            String rBill = jsonObject.getString("billInfo");
+            String rReceiptPageNum = jsonObject.optString("receiptPageNum", null);
+            String rStoreInfo = jsonObject.optString("storeInfo", null);
+            String rReceiptInfo = jsonObject.optString("receiptInfo", null);
+            String rCardInfo = jsonObject.optString("cardInfo", null);
+            String rBill = jsonObject.optString("billInfo", null);
+            String rReceiptType = jsonObject.optString("receiptType", "룸번호");
             TextLog.o(" " + ConstDef.MYDISPLAY_TO_MYPAY_PRINT_TAG + " " + mCurrType + " " + mCurrFuncNm + " " + mCurrData);
-            XprintReceipt(rReceiptPageNum, rStoreInfo, rReceiptInfo, rCardInfo, rBill);
+            xPrintFactory.XprintReceipt(rReceiptPageNum, rStoreInfo, rReceiptInfo, rCardInfo, rBill, rReceiptType);
             //PrintFactory.funcPrintText(rReceiptPageNum, rStoreInfo, rReceiptInfo, rCardInfo, rBill);
         } catch (JSONException e) {
             e.printStackTrace();
@@ -292,7 +345,7 @@ public class MyPayService extends Service implements Runnable {
     public void cashReceipt(String money, String tax, String tCode, String payReceiptType) {
         intent = new Intent(ConstDef.ACTION_NAME_FROM_KIS); // 앱 이름을 가지고 Intent 객체를 생성합니다.
         kisvanSpec.Init(); // KisvanSpec 객체의 Init() 메서드를 호출하여 초기화 작업을 수행합니다.
-        kisvanSpec.inTestMode = "Y"; // 테스트 모드를 활성화하기 위해 "Y" 값을 할당합니다.
+        kisvanSpec.inTestMode = mypayInTestMode; // 테스트 모드를 활성화하기 위해 "Y" 값을 할당합니다.
         // 빈 값으로 입력하면 AndroidAgent 내에서 선택된 가맹점으로 결제가 진행됩니다.
         kisvanSpec.inTranCode = tCode; // 거래 코드를 설정합니다.
         kisvanSpec.inTotAmt = String.valueOf(Integer.parseInt(money) + Integer.parseInt(tax));//String.valueOf(Integer.parseInt(money) + Integer.parseInt(tax))
@@ -312,7 +365,7 @@ public class MyPayService extends Service implements Runnable {
     private void payCancel(String money, String tax, String tCode, String aNumber, String aDate) {
         intent = new Intent(ConstDef.ACTION_NAME_FROM_KIS); // 앱 이름을 가지고 Intent 객체를 생성합니다.
         kisvanSpec.Init(); // KisvanSpec 객체의 Init() 메서드를 호출하여 초기화 작업을 수행합니다.
-        kisvanSpec.inTestMode = "Y"; // 테스트 모드를 활성화하기 위해 "Y" 값을 할당합니다.
+        kisvanSpec.inTestMode = mypayInTestMode; // 테스트 모드를 활성화하기 위해 "Y" 값을 할당합니다.
         // 빈 값으로 입력하면 AndroidAgent 내에서 선택된 가맹점으로 결제가 진행됩니다.
         kisvanSpec.inTranCode = tCode; // 거래 코드를 설정합니다.
         kisvanSpec.inTotAmt = String.valueOf(Integer.parseInt(money) + Integer.parseInt(tax)); // 총 금액을 설정합니다.
@@ -332,9 +385,11 @@ public class MyPayService extends Service implements Runnable {
 
     // 카드 결제
     public void PaymentResponse(Intent intent) {
-        if(intent == null) return; // Intent가 null인 경우 종료
+        if(intent == null || divIndex.startsWith("first"))  {
+            divIndex = null;
+            return; // Intent가 null인 경우 종료
+        }
         kisvanSpec.ResponseData(intent); // kisvanSpec 객체로부터 데이터 가져오기
-        Log.e("@@@응답값 예외처리 값들 확인 ", " divIndex: "+divIndex+ " kisvanSpec.outAuthDate: "+kisvanSpec.outAuthDate);
         if(divIndex == null) {
             divIndex = "undefined";
         }
@@ -453,6 +508,9 @@ public class MyPayService extends Service implements Runnable {
         System.out.println("outUsedPoint: " + kisvanSpec.outUsedPoint);
         System.out.println("outStatusICCard: " + kisvanSpec.outStatusICCard);
         System.out.println("kisvanSpec.outSignFilePath: " + kisvanSpec.outSignFilePath);
+        if (kisvanSpec.outSignFilePath != null && !kisvanSpec.outSignFilePath.isEmpty()) {
+            xPrintFactory.setOutSignFilePath(kisvanSpec.outSignFilePath);
+        }
 
         TextLog.o(" " + ConstDef.KIS_PAYMENT_RESPONSE_TAG + " " + sb);
         String sbPaydatas = sb.toString();
@@ -475,305 +533,36 @@ public class MyPayService extends Service implements Runnable {
     }
 
     private void handleSendMain(JSONObject jsonObject) {
-        Log.i(ConstDef.TAG," MyService 리더기 응답 값"+  jsonObject.toString());
-        final Intent intent = new Intent(ConstDef.ACTION_NAME_TO_MYDISPLAY);
-        intent.putExtra("type", ConstDef.CMD_TYPE);
-        intent.putExtra("funcNm", ConstDef.CMD_FUNCNM_INTENT_RECEIVED);
-        intent.putExtra("data", jsonObject.toString());
-        sendBroadcast(intent);
-        TextLog.o(" " + ConstDef.MYPAYT_TO_MYDISPLAY_TAG + " " + ConstDef.ACTION_NAME_TO_MYDISPLAY + " " +ConstDef.CMD_TYPE + " " + ConstDef.CMD_FUNCNM_INTENT_RECEIVED + " " + jsonObject);
-        UndoContinuous();
+        try {
+            Log.i(ConstDef.TAG," MyService 리더기 응답 값"+  jsonObject.toString());
+            final Intent intent = new Intent(ConstDef.ACTION_NAME_TO_MYDISPLAY);
+            intent.putExtra("type", ConstDef.CMD_TYPE);
+            intent.putExtra("funcNm", ConstDef.CMD_FUNCNM_INTENT_RECEIVED);
+            intent.putExtra("data", jsonObject.toString());
+            sendBroadcast(intent);
+            TextLog.o(" " + ConstDef.MYPAYT_TO_MYDISPLAY_TAG + " " + ConstDef.ACTION_NAME_TO_MYDISPLAY + " " +ConstDef.CMD_TYPE + " " + ConstDef.CMD_FUNCNM_INTENT_RECEIVED + " " + jsonObject);
+            UndoContinuous(500);
+        } catch (ActivityNotFoundException e) {
+            // 액티비티를 처리할 수 없는 예외 발생 시 실행할 코드 작성
+            TextLog.o(" " + ConstDef.MYPAYT_MYDISPLAY_APP_CONNECTION_FAILD + " handleSendMain() ");
+            e.printStackTrace();
+        }
     }
 
     // 연속방지 초기화 메소드
-    private void UndoContinuous() {
+    private void UndoContinuous(int time) {
         Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                isStarting = false;
-            }
-        }, 1000);
-    }
-
-    // 프린터 연결을 수행하는 메서드
-    private void connect(String mac) {
-        TextLog.o(" " + ConstDef.MYPAYT_PRINT_CONNECTION_STATUS + " Status: " + connect);
-        if (connect != null) {
-            connect.close();
-        }
-        connect = POSConnect.createDevice(POSConnect.DEVICE_TYPE_USB);
-        connect.connect(null, (code, msg) -> {
-            if (code == POSConnect.CONNECT_SUCCESS) {
-                // 연결 성공 시
-                printer = new POSPrinter(connect);
-                connect.startReadLoop(this::receiveData);
-                TextLog.o(" " + ConstDef.MYPAYT_PRINT_CONNECTION_STATUS + " Success: " + connect);
-            } else if (code == POSConnect.CONNECT_FAIL) {
-                // 연결 실패 시
-                TextLog.o(" " + ConstDef.MYPAYT_PRINT_CONNECTION_STATUS + " Failed: " + connect);
-            } else if (code == POSConnect.CONNECT_INTERRUPT) {
-                // 연결 중단 시
-                TextLog.o(" " + ConstDef.MYPAYT_PRINT_CONNECTION_STATUS + " Interruption: " + connect);
-            }
-        });
-    }
-    // 데이터 수신 처리 메서드
-    private void receiveData(byte[] data) {
-        String hexString = HexUtils.bytes2HexStrWithSpace(data, data.length);
-        // 사용할 코드로 처리하세요
-        // (HexUtils.bytes2String(data))
-    }
-    private void XprintReceipt(String rReceiptPageNum, String rStore, String rReceipt, String rCard, String rBill) {
-        if(printer != null) {
-            TextLog.o(" " + ConstDef.MYPAYT_PRINT_OUTPUT_VALUES + " rReceiptPageNum: " + rReceiptPageNum + " rStore: " + rStore + " rReceipt: " + rReceipt + " rCard: " + rCard + " rBill: " + rBill + " outSignFilePath: " + kisvanSpec.outSignFilePath);
-            try {
-                // 매장정보
-                JSONObject joStore = new JSONObject(rStore);
-                String sName = joStore.getString("sName");
-                String sAddress = joStore.getString("sAddress");
-                String sRepresentative = joStore.getString("sRepresentative");
-                String sTel = joStore.getString("sTel");
-                String sOrderDate = joStore.getString("sOrderDate");
-                String sOrderNumber = joStore.optString("sOrderNumber", null);
-
-                printer.setCharSet("CP949");
-                // 메뉴 교환권이 필요 시
-                if(rReceiptPageNum.equals("2")){
-                    printer.printText("[메뉴 교환권]\n", POSConst.ALIGNMENT_CENTER, POSConst.FNT_BOLD, 2).feedLine();
-                    String couponNumber = String.format("%s%s",
-                            convert("교환권 번호", 13),
-                            convert(": "+"0157", 1));
-                    printer.printString(couponNumber).feedLine();
-                    String couponDate = String.format("%s%s",
-                            convert("일시", 13),
-                            convert(": "+sOrderDate, 1));
-                    printer.printString(couponDate).feedLine();
-                    printer.printString("-----------------------------------------------").feedLine();
-                    String couponCategories = String.format("%s%s",
-                            convert("상품명", 40),
-                            convert("수량", 5));
-                    printer.printString(couponCategories).feedLine();
-                    printer.printString("-----------------------------------------------").feedLine();
-                    JSONArray jaCouponData = new JSONArray(rReceipt);
-                    for (int i = 0; i < jaCouponData.length(); i++) {
-                        JSONObject joCouponData = jaCouponData.getJSONObject(i);
-                        // JSON 객체에서 필요한 값을 추출
-                        String name = joCouponData.getString("name");
-                        int quantity = joCouponData.getInt("quantity");
-                        StringBuilder sbCoupon = new StringBuilder();
-                        sbCoupon.append(convert(name, 42));
-                        sbCoupon.append(convert(String.valueOf(quantity), 5));
-                        printer.printString(sbCoupon.toString()).feedLine();
-                    }
-                    printer.printString("-----------------------------------------------").feedLine(5);
-                    printer.cutPaper();
+                if(isStarting) {
+                    isStarting = false;
                 }
-
-                printer.initializePrinter().printText("[영수증]\n", POSConst.ALIGNMENT_CENTER, POSConst.FNT_BOLD, 2).feedLine();
-                String storeName = String.format("%s%s",
-                        convert("매 장 명", 10),
-                        convert(sName, 30));
-                printer.printString(storeName).feedLine();
-
-                String storeAddress = String.format("%s%s",
-                        convert("매장주소", 10),
-                        convert(sAddress, 30));
-                printer.printString(storeAddress).feedLine();
-
-                String storeRepresentative = String.format("%s%s",
-                        convert("대표자", 10),
-                        convert(sRepresentative, 30));
-                printer.printString(storeRepresentative).feedLine();
-
-                String storeRepresentativeNumber = String.format("%s%s",
-                        convert("TEL", 10),
-                        convert(sTel, 30));
-                printer.printString(storeRepresentativeNumber).feedLine();
-
-                String storeOrderDate = String.format("%s%s",
-                        convert("주문일시", 10),
-                        convert(sOrderDate, 30));
-                printer.printString(storeOrderDate).feedLine();
-
-                String storeOrderNumber = String.format("%s%s",
-                        convert("룸번호", 10),
-                        convert(sOrderNumber, 30));
-                printer.printString(storeOrderNumber).feedLine();
-                printer.printString("-----------------------------------------------").feedLine();
-
-                String storeCategories = String.format("%s%s%s%s",
-                        convert("상품명", 23),
-                        convert("단가", 8),
-                        convert("수량", 8),
-                        convert("금액", 9));
-                printer.printTextAttribute(storeCategories, POSConst.FNT_BOLD).printString("-----------------------------------------------").feedLine();
-
-                JSONArray jaStoreData = new JSONArray(rReceipt);
-                for (int i = 0; i < jaStoreData.length(); i++) {
-                    JSONObject joStoreData = jaStoreData.getJSONObject(i);
-                    // JSON 객체에서 필요한 값을 추출
-                    String name = joStoreData.getString("name");
-                    String price = joStoreData.getString("price");
-                    int quantity = joStoreData.getInt("quantity");
-                    int amount = joStoreData.getInt("quantity") * joStoreData.getInt("price");
-                    StringBuilder sbStoreData = new StringBuilder();
-                    sbStoreData.append(convert(name, 22));
-                    sbStoreData.append(convert(formatPrice(Integer.parseInt(price)), 10));
-                    sbStoreData.append(convert(String.valueOf(quantity), 7));
-                    sbStoreData.append(convert(formatPrice(amount), 9));
-                    printer.printString(sbStoreData.toString());
-                }
-
-                printer.printString("-----------------------------------------------").feedLine();
-
-                // 돈 세금
-                JSONObject joBill = new JSONObject(rBill);
-                String sTotal = joBill.getString("total");
-                String sTax = joBill.getString("tax");
-                String storeMoney = String.format("%s%s",
-                        convert("공급가액", 39),
-                        convert(formatPrice(Integer.parseInt(sTotal)-Integer.parseInt(sTax)), 9));
-                printer.printString(storeMoney);
-
-                String storeSurtax = String.format("%s%s",
-                        convert("부 가 세", 39),
-                        convert(formatPrice(Integer.parseInt(sTax)), 9));
-                printer.printString(storeSurtax).printString("-----------------------------------------------").feedLine();
-
-                String storeResult = String.format("%s%s",
-                        convert("합계", 39),
-                        convert(formatPrice(Integer.parseInt(sTotal)), 9));
-                printer.printString(storeResult).printString("-----------------------------------------------").feedLine();
-
-                JSONArray jaCardInfo = new JSONArray(rCard);
-                for (int i = 0; i < jaCardInfo.length(); i++) {
-                    JSONObject joCardInfo = jaCardInfo.getJSONObject(i);
-                    // JSON 객체에서 필요한 값을 추출
-                    String rIssuingCompany = joCardInfo.getString("issuingCompany");
-                    String rCardNumber = joCardInfo.getString("cardNumber");
-                    String rApprovalNumber = joCardInfo.getString("approvalNumber");
-                    String rApprovalDate = joCardInfo.getString("approvalDate");
-                    String rMerchantNumber = joCardInfo.getString("merchantNumber");
-                    String rApprovalMoney = joCardInfo.getString("approvalMoney");
-                    if(rIssuingCompany.equals("cashReceipt")) {
-                        printer.printText("<<< 현금영수증 >>>\n", POSConst.ALIGNMENT_CENTER, POSConst.FNT_BOLD, POSConst.TXT_1HEIGHT);
-
-                        String cardNumber = String.format("%s%s",
-                                convert2("식별번호  ", 8),
-                                convert(" : "+rCardNumber, 30));
-                        printer.printString(cardNumber).feedLine();
-
-                        int total = Integer.parseInt(rApprovalMoney);
-                        String approvalMoney = String.format("%s%s",
-                                convert2("승인금액  ", 8),
-                                convert(" : "+formatPrice(Integer.parseInt(rApprovalMoney)), 30));
-                        printer.printString(approvalMoney).feedLine();
-
-                        String approvalNumber = String.format("%s%s",
-                                convert2("승인번호  ", 8),
-                                convert(" : "+rApprovalNumber, 30));
-                        printer.printString(approvalNumber).feedLine();
-
-                        String approvalDate = String.format("%s%s",
-                                convert2("승인일시  ", 8),
-                                convert(" : "+rApprovalDate, 30));
-                        printer.printString(approvalDate).feedLine();
-                    }
-                    else if(rIssuingCompany.equals("cash")) {
-
-                    }
-                    // 신용걸래
-                    else {
-                        printer.printText("<<< 신 용 승 인 정 보 >>>\n", POSConst.ALIGNMENT_CENTER, POSConst.FNT_BOLD, POSConst.TXT_1HEIGHT);
-                        String cardCompanyName = String.format("%s%s",
-                                convert2("카드종류  ", 8),
-                                convert(" : "+rIssuingCompany, 30));
-                        printer.printString(cardCompanyName).feedLine();
-
-                        String cardNumber = String.format("%s%s",
-                                convert2("카드번호  ", 8),
-                                convert(" : "+rCardNumber, 30));
-                        printer.printString(cardNumber).feedLine();
-
-                        String installment = String.format("%s%s",
-                                convert2("할부개월  " , 8),
-                                convert(" : "+"일시불  ", 30));
-                        printer.printString(installment).feedLine();
-
-                        int total = Integer.parseInt(rApprovalMoney);
-                        String approvalMoney = String.format("%s%s",
-                                convert2("승인금액  ", 8),
-                                convert(" : "+formatPrice(Integer.parseInt(rApprovalMoney)), 30));
-                        printer.printString(approvalMoney).feedLine();
-
-                        String approvalNumber = String.format("%s%s",
-                                convert2("승인번호  ", 8),
-                                convert(" : "+rApprovalNumber, 30));
-                        printer.printString(approvalNumber).feedLine();
-
-                        String approvalDate = String.format("%s%s",
-                                convert2("승인일시  ", 8),
-                                convert(" : "+rApprovalDate, 30));
-                        printer.printString(approvalDate).feedLine();
-
-                        String purchaseCompany = String.format("%s%s",
-                                convert2("가맹점번호", 8),
-                                convert(" : "+rMerchantNumber, 30));
-                        printer.printString(purchaseCompany).feedLine();
-                    }
-
-                }
-                // 파일 경로를 문자열로 저장합니다.
-                String filePath = kisvanSpec.outSignFilePath;
-                if(filePath != null) {
-                    // File 객체를 생성합니다.
-                    File file = new File(filePath);
-                    // 파일이 존재하는지 확인합니다.
-                    if (file.exists()) {
-                        printer.printString("-----------------------------------------------").feedLine();
-                        printer.printString("(서명)").feedLine(1);
-                        printer.initializePrinter().printBitmap(filePath, POSConst.ALIGNMENT_CENTER, 300);
-                        printer.feedLine(2);
-                        kisvanSpec.outSignFilePath = "";
-                    }
-                }
-                printer.printString("-----------------------------------------------").feedLine(5).cutPaper();
-            } catch (JSONException e) {
-                e.printStackTrace();
+                TextLog.o(" " + ConstDef.MYPAYT_MYDISPLAY_APP_CONNECTION_FAILD + " UndoContinuous(): "+ isStarting);
             }
-        }
-
+        }, time);
     }
 
-    // 한국 돈 표기법으로 형식화된 문자열 반환
-    public static String formatPrice(int price) {
-        DecimalFormat decimalFormat = new DecimalFormat("#,##0");
-        return decimalFormat.format(price);
-    }
-
-    // 전각문자의 개수만큼 문자열 길이를 빼주는 메서드
-    public static String convert(String word, int size) {
-        String formatter = String.format("%%-%ds", size - getKorCnt(word));
-        return String.format(formatter, word);
-    }
-
-    // 전각문자의 개수만큼 문자열 길이를 빼주는 메서드
-    public static String convert2(String word, int size) {
-        String formatter = String.format("%%%ds", size - getKorCnt(word));
-        return String.format(formatter, word);
-    }
-
-    // 전각문자 개수를 세주는 메서드
-    private static int getKorCnt(String kor) {
-        int cnt = 0;
-        for (int i = 0; i < kor.length(); i++) {
-            if (kor.charAt(i) >= '가' && kor.charAt(i) <= '힣') {
-                cnt++;
-            }
-        }
-        return cnt;
-    }
 
     // 로그 업로드, app 업데이트
     @Override
@@ -810,20 +599,24 @@ public class MyPayService extends Service implements Runnable {
         http.execute(Integer.toString(ConstDef.HTTP_POST_UPLOAD_LOG), ArgHttpMethod, ArgHttpUrl, ArgHttpBody, ConstDef.HTTP_TYPE_FILE);
     }
 
-    private void requestUpdateVersion() {
+    public void requestUpdateVersion() {
         TextLog.o("requestUpdateVersion");
+        // HTTP 요청 관련 변수 설정
         String ArgHttpMethod = "GET";
         String ArgHttpUrl = ConstDef.UPDATE_URL_VERSION;
         String ArgHttpBody = "";
+        // HTTP 요청 모듈 생성 및 실행
         HTTPModuleClass http = new HTTPModuleClass(this);
         http.execute(Integer.toString(ConstDef.HTTP_GET_UPDATE_VERSION), ArgHttpMethod, ArgHttpUrl, ArgHttpBody, ConstDef.HTTP_TYPE_DATA);
     }
 
     private void requestUpdateApk() {
         TextLog.o("requestUpdateApk");
+        // HTTP 요청 관련 변수 설정
         String ArgHttpMethod = "GET";
         String ArgHttpUrl = ConstDef.UPDATE_URL_APK;
         String ArgHttpBody = "";
+        // HTTP 요청 모듈 생성 및 실행
         HTTPModuleClass http = new HTTPModuleClass(this);
         http.execute(Integer.toString(ConstDef.HTTP_GET_UPDATE_APK), ArgHttpMethod, ArgHttpUrl, ArgHttpBody, ConstDef.HTTP_TYPE_FILE);
     }
@@ -836,9 +629,9 @@ public class MyPayService extends Service implements Runnable {
         @Override
         protected void onPostExecute(Integer values) {
             int request_code = values.intValue();
-
             TextLog.o("[Resp] RequestCode = " + request_code);
 
+            // HTTP 요청 결과에 따라 처리
             if (request_code == ConstDef.HTTP_GET_UPDATE_VERSION) {
                 handleHttpGetUpdateVersion(RetResult, RetHttpStatusCode, RetHttpBody);
             }
@@ -851,6 +644,7 @@ public class MyPayService extends Service implements Runnable {
         }
     }
 
+    // 서버에서 받아온 업데이트 버전 정보 처리
     private void handleHttpGetUpdateVersion(String ReturnResult, String ReturnHttpStatusCode, String ReturnHttpBody) {
         if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_OK)) {
             TextLog.o("handleHttpGetUpdateVersion: OK");
@@ -858,7 +652,7 @@ public class MyPayService extends Service implements Runnable {
             TextLog.o("handleHttpGetUpdateVersion: |" + ReturnHttpBody + "|");
 
             int currVersionCode, postVersionCode;
-
+            // 현재 앱의 버전 코드 조회
             currVersionCode = ConstFunc.getAppVersionCode(this);
 
             /*
@@ -880,6 +674,7 @@ public class MyPayService extends Service implements Runnable {
             TextLog.o("handleHttpGetUpdateVersion: [post] VersionCode = " + postVersionCode);
 
             if (postVersionCode > currVersionCode) {
+                // 업데이트가 필요하면 APK 파일 업데이트 요청
                 requestUpdateApk();
             }
         }
@@ -897,7 +692,9 @@ public class MyPayService extends Service implements Runnable {
         }
     }
 
+    // 업데이트된 APK 파일 다운로드 및 설치 처리
     private void handleHttpGetUpdateApk(String ReturnResult, String ReturnHttpStatusCode, String ReturnHttpBody) {
+
         if (ReturnResult.equals(ConstDef.RETURN_RESULT_VALUE_OK)) {
             TextLog.o("handleHttpGetUpdateApk: OK");
             TextLog.o("handleHttpGetUpdateApk: |" + ReturnHttpStatusCode + "|");
@@ -922,17 +719,15 @@ public class MyPayService extends Service implements Runnable {
 
             if (postVersionCode > currVersionCode) {
                 TextLog.o("handleHttpGetUpdateApk: Update Start");
-
-                AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
-                Intent intent = new Intent(getApplicationContext(), AlarmReceiver.class);
-                PendingIntent pi = PendingIntent.getBroadcast(this, 0, intent, 0);
-
-                Date now = new Date();
-                now.setTime(java.lang.System.currentTimeMillis() + ConstDef.ALARM_TIME);
-                am.set(AlarmManager.RTC_WAKEUP, now.getTime(), pi);
-
+                // 알람 설정?
+//                AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
+//                Intent intent = new Intent(getApplicationContext(), AlarmReceiver.class);
+//                PendingIntent pi = PendingIntent.getBroadcast(this, 0, intent, 0);
+//                Date now = new Date();
+//                now.setTime(java.lang.System.currentTimeMillis() + ConstDef.ALARM_TIME); //ConstDef.ALARM_TIME
+//                am.set(AlarmManager.RTC_WAKEUP, now.getTime(), pi);
                 TextLog.o("handleHttpGetUpdateApk: Restart Application in " + ConstDef.ALARM_TIME + " ms");
-
+                // APK 파일 설치
                 ConstFunc.installApk(this, ReturnHttpBody /* apk_full_path */);
             }
         }
@@ -1204,7 +999,7 @@ public class MyPayService extends Service implements Runnable {
     void EasyPaymentResponse(String setdata) {
         Intent intent = new Intent(ConstDef.ACTION_NAME_FROM_KIS);
         kisvanSpec.Init();
-        kisvanSpec.inTestMode = "Y";
+        kisvanSpec.inTestMode = mypayInTestMode;
         //총금액
         kisvanSpec.inTotAmt = "1004";
         //부가세
@@ -1225,7 +1020,7 @@ public class MyPayService extends Service implements Runnable {
     private void easyPayCancel() {
         intent = new Intent(ConstDef.ACTION_NAME_FROM_KIS);
         kisvanSpec.Init();
-        kisvanSpec.inTestMode = "Y";
+        kisvanSpec.inTestMode = mypayInTestMode;
         kisvanSpec.inTotAmt = "1004";
         kisvanSpec.inVatAmt = "91";
         kisvanSpec.inTranCode = "RR";
@@ -1403,7 +1198,8 @@ public class MyPayService extends Service implements Runnable {
         unregisterReceiver(kisReceiver);
         PrintFactory.printerDestroy();
         serialPort.close();
-        connect.close();
+        xPrintFactory.printClose();
+        isStarting = false;
         super.onDestroy();
     }
 

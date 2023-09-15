@@ -106,8 +106,8 @@ public class ConstFunc {
          }
 
          if (conn != null) {
-            conn.setReadTimeout(3000); /* 10000 -> 3000 */
-            conn.setConnectTimeout(3000); /* 10000 -> 3000 */
+            conn.setReadTimeout(10000);
+            conn.setConnectTimeout(10000);
             conn.setDoInput(true);
 
             conn.setRequestMethod(a_method);
